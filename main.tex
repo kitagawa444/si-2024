@@ -2,6 +2,14 @@
 \usepackage{si}
 \usepackage{amsmath}
 \usepackage[dvipdfmx]{graphicx}
+\usepackage[dvipdfmx, colorlinks=true, linkcolor=black, citecolor=black, urlcolor=black]{hyperref} % オプションを追加
+\usepackage{titlesec}
+\usepackage{subcaption}
+
+\titlespacing*{\section}
+{0pt}{10pt}{5pt} % 左のインデント, 前のスペース, 後のスペース
+\titlespacing*{\subsection}
+{0pt}{8pt}{3pt} % 左インデント, 前スペース, 後スペース
 
 \begin{document}
 \makeatletter
@@ -19,7 +27,7 @@
 \input src/conclusion
 %
 % acknowledgement (not available for si template)
-% \input src/acknowledge.tex
+%\input src/acknowledge.tex
 %
 % reference
 \input src/bib.tex

@@ -1,42 +1,89 @@
-\section{関連研究}
-\subsection{原稿枚数，ファイル形式とファイル容量}
-原稿は1講演につき1ページから最大6ページとなります（キーノート講演も同様です）．
-提出していただく原稿のファイル形式は原則としてPDF形式といたします．
-PDF形式とすることが不可能な場合には，プログラム委員会にご連絡ください．
-また，原稿完成時のファイルサイズはPDF形式で2MB程度を上限の目安とさせていただきます．
-原稿送付時にはそれ以上でも受付可能な場合がありますが，
-その場合には全体の原稿の総容量により再提出をお願いする場合がありますので，
-ご了承ください\cite{Shinjuku98, Shinjuku99}．
-%
-\subsection{用紙サイズ，書式など}
-\subsubsection{原稿の体裁}
-用紙サイズはA4版(縦297mm$\times$横210mm)とし，
-余白部分は左右15mm，上20mm，下27mmを確保してください．
-（プログラム委員会でヘッダ・フッダ部分に情報を追加する予定ですので，ご注意ください．）
-よって，原稿作成領域は250mm$\times$180mmの枠内となります．
-%
-\subsubsection{基本書式}
-原稿の記載内容は，下記の順序とします．
-\begin{enumerate}
-\setlength{\parskip}{0cm} % 段落間詰める
-\setlength{\itemsep}{0cm} % 項目間詰める
-\item[1)] 和文題目（英文原稿の場合には不要，16ptゴシックフォント推奨，センタリング）
-\item[2)] 和文著者名・所属（英文原稿の場合には不要，12pt明朝フォント推奨，センタリング，登壇者に○を付加）
-\item[3)] 英文題目（16pt Times-Roman Bold推奨，センタリング）
-\item[4)] 英文著者名・所属（12pt Times-Roman推奨，センタリング，登壇者に○を付加）
-\item[5)] 英文アブストラクト（9pt Times-Roman推奨，3〜5行程度，文章両側を10mm程度インデント）
-\item[6)] 本文（本文文章は10pt明朝フォント推奨，小見出しは12〜10pt程度のゴシックフォント推奨）
-\item[7)] 参考文献（10pt明朝フォント推奨）
-\end{enumerate}
-\subsubsection{図と表について}
-予稿はPDFファイルとなりますので，図や表はカラーで作成していただいても構いません．
-ただしファイルサイズの制限にご注意ください．
-図のキャプションは図の下にFig.1，Fig.2という具合に，表のキャプションは表の上にTable 1，Table 2という具合にお付けください．（英語表記，フォントは10pt Times-Roman推奨）
-%
-\section{手法}
+\section{Iterative Closest Pointを利用したSLAM原点の補正}
 
-提案手法を書く．
+\begin{figure}[h]
+\includegraphics[width=\columnwidth]{figs/2.pdf}
+\caption{3D MAP of TOYOTA factory}
+\label{fig:fig2}
+\end{figure}
+
+　ロボットが工場内における絶対位置を把握するため，Iterative Closest Point\cite{ICP}を利用したSLAM原点の補正アルゴリズムを構築した．
+はじめに，3D LiDAR SLAMによりFig.~\ref{fig:fig2}のように環境地図を作成する．事前作成された環境地図と3D LiDARから得られる点群情報にIterative Closest Point (ICP)を適用することにより，地図原点とSLAM原点との相対関係を算出し，補正する．
+
+\section{自律走行システム}
+　ロボットの効率的な自律移動および停止時における高精度な位置制御を実現するために，Fig.~\ref{fig:fig3}のような目標位置までの距離によってことなるアプローチをとる自律走行システムを構築した．
+
+目標位置の遠方の場合には大局的および局所的な経路計画を生成することのできる$move\_base$\cite{move_base}を利用した．事前の環境地図は2.節で作成した，3D環境地図を特定の高さ範囲で区切ることで，二次元環境地図を作成した．また，同様に，3D LiDARで得られる点群情報を特定の高さ範囲で区切ることで二次元コストマップをオンラインで作成し，事前マップからの変化や動的な障害物回避に用いた．
+
+目標位置の近傍では，式1で表されるP制御を用いてロボットの位置姿勢制御を行った．二次元環境地図における目標位置及び目標姿勢に追従する．
+%% \begin{align}
+%% v^{\text{des}} &= K_{P} e_{r} + K_{I_{r}} \int \left e_{r} \right dt  
+%% \end{align}
+\begin{align}
+v^{\text{des}} &= K_{P} e_{r} %%+ K_{I} \int e_{r} \, dt
+\end{align}
+\begin{align}
+w^{\text{des}} &= K_{P} e_{θ} %%+ K_{I} \int e_{r} \, dt
+\end{align}
+
+上述の大域的，局所的な対象的な２つの制御を目標位置までの距離を監視し，使い分けることで，目標位置にたいして高精度に追従するシステムを構築した．
+
+\begin{figure}[h]
+\includegraphics[width=\columnwidth]{figs/3.pdf}
+\caption{Conceptual scheme of autonomous moving system}
+\label{fig:fig3}
+\end{figure}
+
+\section{システムアーキテクチャ}
+
+本システムの概要をFig.~\ref{fig:fig4}に示す．
+本システムの開発にはロボット用のミドルウェアとして広く利用されているROS(Robot Operating System)を利用し，State Estimator, Motion Planner and Position Controllerの処理に活用された．
+Onboard PCとして，Khadas社製Vim4(KVIM4-B-001)，3D LiDARとしてLivox社製Mid-360，全方位移動台車ロボットとしてヴィンストン社製メカナムローバーver3.0を用いた．
+
+\begin{figure}[h]
+\includegraphics[width=\columnwidth]{figs/4.pdf}
+\caption{System architecture}
+\label{fig:fig4}
+\end{figure}
+
+Fig.~\ref{fig:fig5}における台車ロボットには次節で詳説するロボットの軌跡を描くためのペンホルダーを左右に増設した．
+
+\begin{figure}[h]
+\includegraphics[width=\columnwidth]{figs/5.pdf}
+\caption{Robot platform}
+\label{fig:fig5}
+\end{figure}
 
 \section{実験}
+\subsection{手続き}
+　本実験では2,3節で述べた自己位置推定及び，位置制御の正確性を検証した．工場における運用を考え，Fig.~\ref{fig:fig6}のように，始点，終点，中継地点2つの合計4点を目的の姿勢で通過する往復走行をおこなった．\ref{fig:fig6}に示すように，走行車両の両側にはペンを固定し，床面に軌跡を描くことで，得られた軌跡からpoint1,point2におけるロボットの停止精度を分析した．本実験はトヨタ自動車株式会社本社工場で実施された．
 
-実験と結果に対する評価を書く．
+\begin{figure}[h]
+\includegraphics[width=\columnwidth]{figs/6.pdf}
+\caption{Passage of the robot in the experiment}
+\label{fig:fig6}
+\end{figure}
+\begin{figure}[h]
+\includegraphics[width=\columnwidth]{figs/7.pdf}
+\caption{Experiment and trajectory of the robot}
+\label{fig:fig7}
+\end{figure}
+
+
+\subsection{実験結果}
+　図２に各停止位置における，左右輪の位置を記載する．繰り返し精度は10~15mm出会ったものの，往復運動で精度に差が現れた．これは回転によってSLAMの精度が減少することが示されている．
+
+%% \begin{figure}[h]
+%% \includegraphics[width=\columnwidth]{figs/8.pdf}
+%% \caption{ガザニア}
+%% \label{fig:fig8}
+%% \end{figure}
+%% \begin{figure}[h]
+%% \includegraphics[width=\columnwidth]{figs/9.pdf}
+%% \caption{ガザニア}
+%% \label{fig:fig9}
+%% \end{figure}
+%% \begin{figure}[h]
+%% \includegraphics[width=\columnwidth]{figs/10.pdf}
+%% \caption{ガザニア}
+%% \label{fig:fig10}
+%% \end{figure}

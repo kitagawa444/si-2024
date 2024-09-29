@@ -253,3 +253,7 @@ sympy-plots-for-*.tex/
 
 *.bb
 *.xbb
+
+*.orig
+*.pdf
+*.eps
