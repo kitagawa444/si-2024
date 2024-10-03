@@ -1,43 +1,44 @@
-\section{Iterative Closest Pointを利用したSLAM原点の補正}
+\section{三次元点群を利用した自己位置推定}
+\cite{FAST-LIO, FAST-LIO2}によるSLAM技術を点群マッチングによる原点補正を加え拡張することで，既知環境における汎用でロバストな自己位置推定技術の確立を目的とする．
 
-\begin{figure}[h]
-\includegraphics[width=\columnwidth]{figs/2.pdf}
-\caption{3D MAP of TOYOTA factory}
-\label{fig:fig2}
-\end{figure}
+\subsection{三次元SLAM}
+工場内での自己位置推定に3次元SLAMを利用するメリットとして大きく３つ挙げられる．
+まずはじめに，車輪オドメトリを使わない点が挙げられる．工場の路面環境は比較的つるつるとしている上に，所々大きな段差が見られる．そのため，ホイールエンコーダーを用いた車輪オドメトリを利用すると，移動時の空転の影響を受けやすく，安定しない．次に，環境変化に強いことが挙げられる．3d-AMCLと比較すると，3D-SLAM内では既知マップを利用しないため，後述の原点補正と組み合わせても，環境変化影響度が低い．最後にSLAM単体で自己位置推定を完結することができる点が挙げられる．後述の原点補正が環境変化や障害物などで，十分に機能しなくなったときや計算時間が増大し遅延が発生する場合も独立で機能するため，正確でロバストな自己位置推定が実現できる．
+以上の点からSLAMと点群マッチングを組み合わせた拡張3D-SLAMを利用する．
 
-　ロボットが工場内における絶対位置を把握するため，Iterative Closest Point\cite{ICP}を利用したSLAM原点の補正アルゴリズムを構築した．
-はじめに，3D LiDAR SLAMによりFig.~\ref{fig:fig2}のように環境地図を作成する．事前作成された環境地図と3D LiDARから得られる点群情報にIterative Closest Point (ICP)を適用することにより，地図原点とSLAM原点との相対関係を算出し，補正する．
+\subsection{点群マッチングによる原点補正}
+前項のSLAM技術により作成された三次元点群による環境地図と3D LiDARから得られる点群情報を利用して，SLAMの原点と環境地図における原点との相対関係を算出することで原点を補正する．環境地図とLiDARからの点群にIterative Closest Point (ICP)\cite{ICP}を適用することにより，点群のマッチングを行い，相互の原点の相対関係を算出する．ICPとは2つの点群同士の位置合わせを繰り返し計算によって実現する手法である．
+Fig.~\ref{fig:fig2}に本アルゴリズムを適用した結果を示しており，赤色の点群が環境地図の点群を表しており，白色の点群が3D LiDARから得られている点群を表している．ICPの適用により，環境地図の点群と3D LiDARの点群が重なり合っていることが確認できる．
 
-\section{自律走行システム}
+\section{経路計画・追従制御手法}
 　ロボットの効率的な自律移動および停止時における高精度な位置制御を実現するために，Fig.~\ref{fig:fig3}のような目標位置までの距離によってことなるアプローチをとる自律走行システムを構築した．
 
-目標位置の遠方の場合には大局的および局所的な経路計画を生成することのできる$move\_base$\cite{move_base}を利用した．事前の環境地図は2.節で作成した，3D環境地図を特定の高さ範囲で区切ることで，二次元環境地図を作成した．また，同様に，3D LiDARで得られる点群情報を特定の高さ範囲で区切ることで二次元コストマップをオンラインで作成し，事前マップからの変化や動的な障害物回避に用いた．
+\subsection{二次元平面での経路計画と追従}
+　目標位置の遠方では大域的，局所的，２つの経路計画を組み合わせて決定することによって，目的地への最適な経路を計画し，実行中の状況変化に柔軟に対応できるロバストな経路計画手法を構築した．
 
-目標位置の近傍では，式1で表されるP制御を用いてロボットの位置姿勢制御を行った．二次元環境地図における目標位置及び目標姿勢に追従する．
-%% \begin{align}
-%% v^{\text{des}} &= K_{P} e_{r} + K_{I_{r}} \int \left e_{r} \right dt  
-%% \end{align}
+まず，ロボットは現在の位置と目標地点をもとに，大局的な経路計画を立てる．この経路計画は，事前に得られている環境の地図を元にしながら，最も効率的なルートを選び出すものであり，この経路計画アルゴリズムにはA*アルゴリズム\cite{Astar}を利用した．A*アルゴリズムはグリッドベースのアルゴリズムで，優先順位キューを使って，最もコストの低い経路を逐次的に探索し，効率的な経路を計画する．しかし，現実の環境では，計画段階では予測できない障害物や環境変化による移動の妨げが生じることが考えられる．そこで，センサーによるリアルタイム情報を使って，障害物を検知し，その場で経路を柔軟に修正する必要がある．この局所的な経路探索にはDWA(Dynamic Window Approach)\cite{DWA}を用いる．DWAはロボットの物理的な運動制約を基に一連の候補となる動作を生成し，その中から最適なものを選択するアルゴリズムである．ロボットの位置周辺における移動リスクを定量化し，静的な構造物だけでなく，移動中の障害物にも柔軟に対応することができる．このようにして，ロボットは大域的な計画を維持しながらも，周囲の環境変化に適応して進むことができる．
+
+\subsection{終端位置姿勢制御}
+　目標位置の近傍では，式1で表されるP制御を用いてロボットの位置姿勢制御を行った．下記の制御により目標位置及び目標姿勢に追従する．
 \begin{align}
-v^{\text{des}} &= K_{P} e_{r} %%+ K_{I} \int e_{r} \, dt
+v^{\text{des}} &= K_{P} e_{r}
 \end{align}
 \begin{align}
-w^{\text{des}} &= K_{P} e_{θ} %%+ K_{I} \int e_{r} \, dt
+w^{\text{des}} &= K_{P} e_{θ}
 \end{align}
-
-上述の大域的，局所的な対象的な２つの制御を目標位置までの距離を監視し，使い分けることで，目標位置にたいして高精度に追従するシステムを構築した．
-
-\begin{figure}[h]
-\includegraphics[width=\columnwidth]{figs/3.pdf}
-\caption{Conceptual scheme of autonomous moving system}
-\label{fig:fig3}
-\end{figure}
 
 \section{システムアーキテクチャ}
-
 本システムの概要をFig.~\ref{fig:fig4}に示す．
-本システムの開発にはロボット用のミドルウェアとして広く利用されているROS(Robot Operating System)を利用し，State Estimator, Motion Planner and Position Controllerの処理に活用された．
-Onboard PCとして，Khadas社製Vim4(KVIM4-B-001)，3D LiDARとしてLivox社製Mid-360，全方位移動台車ロボットとしてヴィンストン社製メカナムローバーver3.0を用いた．
+本システムではハードウェアとして，移動台車ロボットとその台車を制御する制御基板，センサーとして3D LiDAR，2,3の自己位置推定と目標位置追従制御をオンラインで実行するためのOnboard PCを使用する．
+
+本システムでは，事前の地図作成プロセスとオンラインの自律移動プロセスの２つに分けられる．
+
+まず，事前プロセスとして，State Estimator内のSLAM技術を用いて，環境マップを作成する．これにより，三次元の環境地図を作成し，三次元の環境地図を特定の高さ範囲で区切ることで，二次元環境地図を作成する．この２つの環境地図を組み合わせて，オンラインプロセスを実行する．
+
+オンラインプロセスではState EstimatorとMotion Planner and Position Controllerの２つを用いて自律移動を実現する．State Estimatorでは前述の三次元地図とLiDARのセンサ情報を利用して，高精度な自己位置推定を行う．Motion Planner and Position ControllerではState Estimatorからオドメトリ情報，3D LiDARで得られる点群情報を特定の高さ範囲で区切ることで得られる2次元点群情報，ユーザーから指定される経由点と目標点，を受け取り台車ロボットの制御基板に目標速度を渡す．
+
+上記の２つのプロセスにより，目標位置にロバストで高精度に追従することのできるシステムを構築した．
+本システムでは台車ロボットを速度により制御することができ，経由点と目標点をユーザーが自由に設定することができる．また，自己位置推定や経路計画の実時間性を保つためにすべてのプロセスをonboardPC内で実行すしており，全体の自律性を実現する．
 
 \begin{figure}[h]
 \includegraphics[width=\columnwidth]{figs/4.pdf}
@@ -45,45 +46,77 @@ Onboard PCとして，Khadas社製Vim4(KVIM4-B-001)，3D LiDARとしてLivox社�
 \label{fig:fig4}
 \end{figure}
 
-Fig.~\ref{fig:fig5}における台車ロボットには次節で詳説するロボットの軌跡を描くためのペンホルダーを左右に増設した．
+\section{実験}
+
+\subsection{プラットフォーム}
+　本システムの開発にはロボット用のミドルウェアとして広く利用されているROS(Robot Operating System)を利用し，State Estimator, Motion Planner and Position Controllerの処理に活用された．
+Onboard PCとして，Khadas社製Vim4(KVIM4-B-001)，3D LiDARとしてLivox社製Mid-360，地上ロボットにはメカナムホイール全方位移動台車ロボットメカナムローバー ver3.0を用いた．また，台車ロボットには実験のためにペンホルダーを左右に増設した．
 
 \begin{figure}[h]
 \includegraphics[width=\columnwidth]{figs/5.pdf}
 \caption{Robot platform}
 \label{fig:fig5}
 \end{figure}
-
-\section{実験}
-\subsection{手続き}
-　本実験では2,3節で述べた自己位置推定及び，位置制御の正確性を検証した．工場における運用を考え，Fig.~\ref{fig:fig6}のように，始点，終点，中継地点2つの合計4点を目的の姿勢で通過する往復走行をおこなった．\ref{fig:fig6}に示すように，走行車両の両側にはペンを固定し，床面に軌跡を描くことで，得られた軌跡からpoint1,point2におけるロボットの停止精度を分析した．本実験はトヨタ自動車株式会社本社工場で実施された．
-
 \begin{figure}[h]
 \includegraphics[width=\columnwidth]{figs/6.pdf}
-\caption{Passage of the robot in the experiment}
+\caption{Pass and goal point in experiment and process of the experiment}
 \label{fig:fig6}
 \end{figure}
+
+
+\subsection{実験手法}
+　本実験では2,3節で述べた自己位置推定及び，位置制御の正確性を検証した．工場における運用を考え始点，終点，中継地点2つの合計4点を目的の姿勢で通過する往復走行を10回おこなった．Fig.~\ref{fig:fig5}に示すように，走行車両の両側にはペンを固定し，床面に軌跡を描くことで，得られた軌跡からpoint1,point4におけるロボットの停止精度を分析した．point1~4の位置は二次元マップ上で，Table.~\ref{table1}のように設定した．
+本実験はトヨタ自動車株式会社本社工場で実施された． 
+
+\begin{table}[h]
+    \caption{Pass and goal point in experiment}
+    \label{table1}
+    \centering
+    \begin{tabular}{cccc} \hline
+      Points & x[m] & y[m] & θ[deg]\\
+      \hline \hline
+      point1 & -0.1 & -0.01 & 0\\
+      point2 & 1.29 & 1.46 & 0, 180\\
+      point3 & 7.25 & 1.37 & 0, 180\\
+      point4 & 15.36 & -1.87 & 180\\
+      \hline
+    \end{tabular}
+\end{table}
+
+\subsection{実験結果}
+　実験により得られた，ロボットの軌跡をFig.~\ref{fig:fig7}に示す．Point1,4で得られた10回の軌跡のうち，判別可能なもの(Point1では8つ，Point4では6つ)を抽出し，それぞれにおけるロボットの重心と向きを，床のシートの中心を(0,0)として，写真水平右方向をx軸正方向，鉛直上方向をy軸正方向として，Fig.~\ref{fig:fig8}，Fig.~\ref{fig:fig9}を作成した．また，平均の重心の位置と姿勢をTable.~\ref{table2}に示す．
+
 \begin{figure}[h]
 \includegraphics[width=\columnwidth]{figs/7.pdf}
 \caption{Experiment and trajectory of the robot}
 \label{fig:fig7}
 \end{figure}
 
+\begin{table}[h]
+    \caption{Average point of center of robot}
+    \label{table2}
+    \centering
+    \begin{tabular}{cccc} \hline
+      Points & x[mm] & y[mm] & θ[deg]\\
+      \hline \hline
+      Point1 & 14.8 & 11.2 & -0.08\\
+      Point4 & 63.6 & -12.8 & -0.01\\
+      \hline
+    \end{tabular}
+\end{table}
 
-\subsection{実験結果}
-　図２に各停止位置における，左右輪の位置を記載する．繰り返し精度は10~15mm出会ったものの，往復運動で精度に差が現れた．これは回転によってSLAMの精度が減少することが示されている．
+\begin{figure}[h]
+\includegraphics[width=\columnwidth]{figs/8.pdf}
+\caption{Experiment and trajectory of the robot}
+\label{fig:fig8}
+\end{figure}
 
-%% \begin{figure}[h]
-%% \includegraphics[width=\columnwidth]{figs/8.pdf}
-%% \caption{ガザニア}
-%% \label{fig:fig8}
-%% \end{figure}
-%% \begin{figure}[h]
-%% \includegraphics[width=\columnwidth]{figs/9.pdf}
-%% \caption{ガザニア}
-%% \label{fig:fig9}
-%% \end{figure}
-%% \begin{figure}[h]
-%% \includegraphics[width=\columnwidth]{figs/10.pdf}
-%% \caption{ガザニア}
-%% \label{fig:fig10}
-%% \end{figure}
+\begin{figure}[h]
+\includegraphics[width=\columnwidth]{figs/9.pdf}
+\caption{Experiment and trajectory of the robot}
+\label{fig:fig9}
+\end{figure}
+
+\subsection{考察}
+重心位置の平均からPoint1ではPoint4と比較して，X軸正方向に60mmと大きくずれていることが確認できる．これは，SLAMにおける位置推定誤差が影響していると考えられ，台車のyaw角が180度変わると誤差が積算されることが示唆される．これを裏付けるように，Point2,3の復路では往路と比較して，x軸方向にPoint4と同様のx軸正方向のズレが確認された．しかしながら，繰り返し誤差は9~15mmであり，非常に高精度であると考えられる．このように，台車の姿勢によって恒常的なオフセットが発生していることから，幾何的な変換時の誤差であることも考えられる．
+一方で，Point4のほうがPoint1と比較して角度の誤差が大きいことが確認できる．これは，終端位置姿勢制御で発生した定常誤差であることを考えられ，収束判定やI制御を追加することで軽減することができると考えられる．
